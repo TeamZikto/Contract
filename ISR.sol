@@ -38,16 +38,19 @@
  * @dev see https://github.com/ethereum/EIPs/issues/179
  */
  
- pragma solidity ^0.4.15;
+pragma solidity ^0.4.18;
  
+/**
+ * @title ERC20Basic
+ * @dev Simpler version of ERC20 interface
+ * @dev see https://github.com/ethereum/EIPs/issues/179
+ */
 contract ERC20Basic {
-  uint256 public totalSupply;
-  function balanceOf(address who) public constant returns (uint256);
+  function totalSupply() public view returns (uint256);
+  function balanceOf(address who) public view returns (uint256);
   function transfer(address to, uint256 value) public returns (bool);
   event Transfer(address indexed from, address indexed to, uint256 value);
 }
-
-
 
 /**
  * @title SafeMath
@@ -96,15 +99,23 @@ library SafeMath {
 }
 
 
-
 /**
  * @title Basic token
- * @dev Basic version of StandardToken, with no allowances. 
+ * @dev Basic version of StandardToken, with no allowances.
  */
 contract BasicToken is ERC20Basic {
   using SafeMath for uint256;
 
   mapping(address => uint256) balances;
+
+  uint256 totalSupply_;
+
+  /**
+  * @dev total number of tokens in existence
+  */
+  function totalSupply() public view returns (uint256) {
+    return totalSupply_;
+  }
 
   /**
   * @dev transfer token for a specified address
@@ -112,6 +123,10 @@ contract BasicToken is ERC20Basic {
   * @param _value The amount to be transferred.
   */
   function transfer(address _to, uint256 _value) public returns (bool) {
+    require(_to != address(0));
+    require(_value <= balances[msg.sender]);
+
+    // SafeMath.sub will throw if there is not enough balance.
     balances[msg.sender] = balances[msg.sender].sub(_value);
     balances[_to] = balances[_to].add(_value);
     Transfer(msg.sender, _to, _value);
@@ -120,15 +135,14 @@ contract BasicToken is ERC20Basic {
 
   /**
   * @dev Gets the balance of the specified address.
-  * @param _owner The address to query the the balance of. 
+  * @param _owner The address to query the the balance of.
   * @return An uint256 representing the amount owned by the passed address.
   */
-  function balanceOf(address _owner) public constant returns (uint256 balance) {
+  function balanceOf(address _owner) public view returns (uint256 balance) {
     return balances[_owner];
   }
 
 }
-
 
 
 
@@ -139,7 +153,7 @@ contract BasicToken is ERC20Basic {
  * @dev see https://github.com/ethereum/EIPs/issues/20
  */
 contract ERC20 is ERC20Basic {
-  function allowance(address owner, address spender) public constant returns (uint256);
+  function allowance(address owner, address spender) public view returns (uint256);
   function transferFrom(address from, address to, uint256 value) public returns (bool);
   function approve(address spender, uint256 value) public returns (bool);
   event Approval(address indexed owner, address indexed spender, uint256 value);
@@ -156,41 +170,38 @@ contract ERC20 is ERC20Basic {
  */
 contract StandardToken is ERC20, BasicToken {
 
-  mapping (address => mapping (address => uint256)) allowed;
+  mapping (address => mapping (address => uint256)) internal allowed;
 
 
   /**
    * @dev Transfer tokens from one address to another
    * @param _from address The address which you want to send tokens from
    * @param _to address The address which you want to transfer to
-   * @param _value uint256 the amout of tokens to be transfered
+   * @param _value uint256 the amount of tokens to be transferred
    */
   function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
-    var _allowance = allowed[_from][msg.sender];
+    require(_to != address(0));
+    require(_value <= balances[_from]);
+    require(_value <= allowed[_from][msg.sender]);
 
-    // Check is not needed because sub(_allowance, _value) will already throw if this condition is not met
-    // require (_value <= _allowance);
-
-    balances[_to] = balances[_to].add(_value);
     balances[_from] = balances[_from].sub(_value);
-    allowed[_from][msg.sender] = _allowance.sub(_value);
+    balances[_to] = balances[_to].add(_value);
+    allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
     Transfer(_from, _to, _value);
     return true;
   }
 
   /**
-   * @dev Aprove the passed address to spend the specified amount of tokens on behalf of msg.sender.
+   * @dev Approve the passed address to spend the specified amount of tokens on behalf of msg.sender.
+   *
+   * Beware that changing an allowance with this method brings the risk that someone may use both the old
+   * and the new allowance by unfortunate transaction ordering. One possible solution to mitigate this
+   * race condition is to first reduce the spender's allowance to 0 and set the desired value afterwards:
+   * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
    * @param _spender The address which will spend the funds.
    * @param _value The amount of tokens to be spent.
    */
   function approve(address _spender, uint256 _value) public returns (bool) {
-
-    // To change the approve amount you first have to reduce the addresses`
-    //  allowance to zero by calling `approve(_spender, 0)` if it is not
-    //  already 0 to mitigate the race condition described here:
-    //  https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-    require((_value == 0) || (allowed[msg.sender][_spender] == 0));
-
     allowed[msg.sender][_spender] = _value;
     Approval(msg.sender, _spender, _value);
     return true;
@@ -200,10 +211,47 @@ contract StandardToken is ERC20, BasicToken {
    * @dev Function to check the amount of tokens that an owner allowed to a spender.
    * @param _owner address The address which owns the funds.
    * @param _spender address The address which will spend the funds.
-   * @return A uint256 specifing the amount of tokens still available for the spender.
+   * @return A uint256 specifying the amount of tokens still available for the spender.
    */
-  function allowance(address _owner, address _spender) public constant returns (uint256 remaining) {
+  function allowance(address _owner, address _spender) public view returns (uint256) {
     return allowed[_owner][_spender];
+  }
+
+  /**
+   * @dev Increase the amount of tokens that an owner allowed to a spender.
+   *
+   * approve should be called when allowed[_spender] == 0. To increment
+   * allowed value is better to use this function to avoid 2 calls (and wait until
+   * the first transaction is mined)
+   * From MonolithDAO Token.sol
+   * @param _spender The address which will spend the funds.
+   * @param _addedValue The amount of tokens to increase the allowance by.
+   */
+  function increaseApproval(address _spender, uint _addedValue) public returns (bool) {
+    allowed[msg.sender][_spender] = allowed[msg.sender][_spender].add(_addedValue);
+    Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
+    return true;
+  }
+
+  /**
+   * @dev Decrease the amount of tokens that an owner allowed to a spender.
+   *
+   * approve should be called when allowed[_spender] == 0. To decrement
+   * allowed value is better to use this function to avoid 2 calls (and wait until
+   * the first transaction is mined)
+   * From MonolithDAO Token.sol
+   * @param _spender The address which will spend the funds.
+   * @param _subtractedValue The amount of tokens to decrease the allowance by.
+   */
+  function decreaseApproval(address _spender, uint _subtractedValue) public returns (bool) {
+    uint oldValue = allowed[msg.sender][_spender];
+    if (_subtractedValue > oldValue) {
+      allowed[msg.sender][_spender] = 0;
+    } else {
+      allowed[msg.sender][_spender] = oldValue.sub(_subtractedValue);
+    }
+    Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
+    return true;
   }
 
 }
@@ -240,7 +288,7 @@ contract BurnableToken is StandardTokenExt {
   function burn(uint burnAmount) public {
     address burner = msg.sender;
     balances[burner] = balances[burner].sub(burnAmount);
-    totalSupply = totalSupply.sub(burnAmount);
+    totalSupply_ = totalSupply_.sub(burnAmount);
     Burned(burner, burnAmount);
 
     // Inform the blockchain explores that track the
@@ -333,7 +381,7 @@ contract UpgradeableToken is StandardTokenExt {
   /**
    * Do not allow construction without upgrade master set.
    */
-  function UpgradeableToken(address _upgradeMaster) {
+  function UpgradeableToken(address _upgradeMaster) public {
     upgradeMaster = _upgradeMaster;
   }
 
@@ -345,16 +393,16 @@ contract UpgradeableToken is StandardTokenExt {
       UpgradeState state = getUpgradeState();
       if(!(state == UpgradeState.ReadyToUpgrade || state == UpgradeState.Upgrading)) {
         // Called in a bad state
-        throw;
+        revert();
       }
 
       // Validate input value.
-      if (value == 0) throw;
+      if (value == 0) revert();
 
       balances[msg.sender] = balances[msg.sender].sub(value);
 
       // Take tokens out from circulation
-      totalSupply = totalSupply.sub(value);
+      totalSupply_ = totalSupply_.sub(value);
       totalUpgraded = totalUpgraded.add(value);
 
       // Upgrade agent reissues the tokens
@@ -369,21 +417,21 @@ contract UpgradeableToken is StandardTokenExt {
 
       if(!canUpgrade()) {
         // The token is not yet in a state that we could think upgrading
-        throw;
+        revert();
       }
 
-      if (agent == 0x0) throw;
+      if (agent == 0x0) revert();
       // Only a master can designate the next agent
-      if (msg.sender != upgradeMaster) throw;
+      if (msg.sender != upgradeMaster) revert();
       // Upgrade has already begun for an agent
-      if (getUpgradeState() == UpgradeState.Upgrading) throw;
+      if (getUpgradeState() == UpgradeState.Upgrading) revert();
 
       upgradeAgent = UpgradeAgent(agent);
 
       // Bad interface
-      if(!upgradeAgent.isUpgradeAgent()) throw;
+      if(!upgradeAgent.isUpgradeAgent()) revert();
       // Make sure that token supplies match in source and target
-      if (upgradeAgent.originalSupply() != totalSupply) throw;
+      if (upgradeAgent.originalSupply() != totalSupply_) revert();
 
       UpgradeAgentSet(upgradeAgent);
   }
@@ -404,17 +452,15 @@ contract UpgradeableToken is StandardTokenExt {
    * This allows us to set a new owner for the upgrade mechanism.
    */
   function setUpgradeMaster(address master) public {
-      if (master == 0x0) throw;
-      if (msg.sender != upgradeMaster) throw;
+      if (master == 0x0) revert();
+      if (msg.sender != upgradeMaster) revert();
       upgradeMaster = master;
   }
 
   /**
    * Child contract can enable to provide the condition when the upgrade can begun.
    */
-  function canUpgrade() public constant returns(bool) {
-     return true;
-  }
+  function canUpgrade() public view returns(bool);
 
 }
 
@@ -626,7 +672,7 @@ contract MintableToken is StandardTokenExt, Ownable {
    * Only callably by a crowdsale contract (mint agent).
    */
   function mint(address receiver, uint amount) onlyMintAgent canMint public {
-    totalSupply = totalSupply.plus(amount);
+    totalSupply_ = totalSupply_.plus(amount);
     balances[receiver] = balances[receiver].plus(amount);
 
     // This will make the mint transaction apper in EtherScan.io
@@ -703,21 +749,21 @@ contract CrowdsaleToken is ReleasableToken, MintableToken, UpgradeableToken {
     name = _name;
     symbol = _symbol;
 
-    totalSupply = _initialSupply;
+    totalSupply_ = _initialSupply;
 
     decimals = _decimals;
 
     // Create initially all balance on the team multisig
-    balances[owner] = totalSupply;
+    balances[owner] = totalSupply_;
 
-    if(totalSupply > 0) {
-      Minted(owner, totalSupply);
+    if(totalSupply_ > 0) {
+      Minted(owner, totalSupply_);
     }
 
     // No more new supply allowed after the token creation
     if(!_mintable) {
       mintingFinished = true;
-      if(totalSupply == 0) {
+      if(totalSupply_ == 0) {
         revert(); // Cannot create a token without supply and no minting
       }
     }
@@ -734,8 +780,8 @@ contract CrowdsaleToken is ReleasableToken, MintableToken, UpgradeableToken {
   /**
    * Allow upgrade agent functionality kick in only if the crowdsale was success.
    */
-  function canUpgrade() public returns(bool) {
-    return released && super.canUpgrade();
+  function canUpgrade() public constant returns(bool) {
+    return released;
   }
 
   /**
