@@ -11,7 +11,7 @@
  * Licensed under the Apache License, version 2.0: https://github.com/TokenMarketNet/ico/blob/master/LICENSE.txt
  */
 
-
+pragma solidity ^0.4.18;
 
 
 /**
@@ -27,7 +27,7 @@ contract Ownable {
    * @dev The Ownable constructor sets the original `owner` of the contract to the sender
    * account.
    */
-  function Ownable() {
+  function Ownable() public {
     owner = msg.sender;
   }
 
@@ -45,7 +45,7 @@ contract Ownable {
    * @dev Allows the current owner to transfer control of the contract to a newOwner.
    * @param newOwner The address to transfer ownership to.
    */
-  function transferOwnership(address newOwner) onlyOwner {
+  function transferOwnership(address newOwner) public onlyOwner {
     require(newOwner != address(0));      
     owner = newOwner;
   }
@@ -66,17 +66,17 @@ contract Haltable is Ownable {
   bool public halted;
 
   modifier stopInEmergency {
-    if (halted) throw;
+    if (halted) revert();
     _;
   }
 
   modifier stopNonOwnersInEmergency {
-    if (halted && msg.sender != owner) throw;
+    if (halted && msg.sender != owner) revert();
     _;
   }
 
   modifier onlyInEmergency {
-    if (!halted) throw;
+    if (!halted) revert();
     _;
   }
 
@@ -111,24 +111,26 @@ contract Haltable is Ownable {
  */
 library SafeMathLib {
 
-  function times(uint a, uint b) returns (uint) {
+  function times(uint a, uint b) internal pure returns (uint) {
     uint c = a * b;
     assert(a == 0 || c / a == b);
     return c;
   }
 
-  function minus(uint a, uint b) returns (uint) {
+  function minus(uint a, uint b) internal pure returns (uint) {
     assert(b <= a);
     return a - b;
   }
 
-  function plus(uint a, uint b) returns (uint) {
+  function plus(uint a, uint b)  internal pure returns (uint) {
     uint c = a + b;
     assert(c>=a);
     return c;
   }
 
 }
+
+
 
 /**
  * This smart contract code is Copyright 2017 TokenMarket Ltd. For more information see https://tokenmarket.net
@@ -147,24 +149,17 @@ library SafeMathLib {
  * @dev see https://github.com/ethereum/EIPs/issues/179
  */
 contract ERC20Basic {
-  uint256 public totalSupply;
-  function balanceOf(address who) constant returns (uint256);
-  function transfer(address to, uint256 value) returns (bool);
-  event Transfer(address indexed from, address indexed to, uint256 value);
-}
-
-
-
-/**
- * @title ERC20Basic
- * @dev Simpler version of ERC20 interface
- * @dev see https://github.com/ethereum/EIPs/issues/179
- */
-contract ERC20Basic {
   function totalSupply() public view returns (uint256);
   function balanceOf(address who) public view returns (uint256);
   function transfer(address to, uint256 value) public returns (bool);
   event Transfer(address indexed from, address indexed to, uint256 value);
+}
+
+contract ERC20 is ERC20Basic {
+  function allowance(address owner, address spender) public view returns (uint256);
+  function transferFrom(address from, address to, uint256 value) public returns (bool);
+  function approve(address spender, uint256 value) public returns (bool);
+  event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
 /**
@@ -189,7 +184,7 @@ contract FractionalERC20 is ERC20 {
 contract PricingStrategy {
 
   /** Interface declaration. */
-  function isPricingStrategy() public constant returns (bool) {
+  function isPricingStrategy() public pure returns (bool) {
     return true;
   }
 
@@ -197,7 +192,8 @@ contract PricingStrategy {
    *
    * Checks that pricing strategy matches crowdsale parameters.
    */
-  function isSane(address crowdsale) public constant returns (bool) {
+  function isSane(address crowdsale) public pure returns (bool) {
+    require(crowdsale != address(0));
     return true;
   }
 
@@ -206,7 +202,8 @@ contract PricingStrategy {
      @param purchaser Address of the purchaser
      @return False by default, true if a presale purchaser
    */
-  function isPresalePurchase(address purchaser) public constant returns (bool) {
+  function isPresalePurchase(address purchaser) public pure returns (bool) {
+    require(purchaser != address(0));
     return false;
   }
 
@@ -223,7 +220,6 @@ contract PricingStrategy {
    */
   function calculatePrice(uint value, uint weiRaised, uint tokensSold, address msgSender, uint decimals) public constant returns (uint tokenAmount);
 }
-
 /**
  * This smart contract code is Copyright 2017 TokenMarket Ltd. For more information see https://tokenmarket.net
  *
@@ -240,7 +236,7 @@ contract PricingStrategy {
  */
 contract FinalizeAgent {
 
-  function isFinalizeAgent() public constant returns(bool) {
+  function isFinalizeAgent() public pure returns(bool) {
     return true;
   }
 
@@ -252,7 +248,7 @@ contract FinalizeAgent {
   function isSane() public constant returns (bool);
 
   /** Called once by crowdsale finalize() if the sale was success. */
-  function finalizeCrowdsale();
+  function finalizeCrowdsale() public;
 
 }
 
@@ -357,7 +353,7 @@ contract CrowdsaleBase is Haltable {
 
   State public testState;
 
-  function CrowdsaleBase(address _token, PricingStrategy _pricingStrategy, address _multisigWallet, uint _start, uint _end, uint _minimumFundingGoal) {
+  function CrowdsaleBase(address _token, PricingStrategy _pricingStrategy, address _multisigWallet, uint _start, uint _end, uint _minimumFundingGoal) public {
 
     owner = msg.sender;
 
@@ -367,24 +363,24 @@ contract CrowdsaleBase is Haltable {
 
     multisigWallet = _multisigWallet;
     if(multisigWallet == 0) {
-        throw;
+        revert();
     }
 
     if(_start == 0) {
-        throw;
+        revert();
     }
 
     startsAt = _start;
 
     if(_end == 0) {
-        throw;
+        revert();
     }
 
     endsAt = _end;
 
     // Don't mess the dates
     if(startsAt >= endsAt) {
-        throw;
+        revert();
     }
 
     // Minimum funding goal can be zero
@@ -394,8 +390,8 @@ contract CrowdsaleBase is Haltable {
   /**
    * Don't expect to just send in money and get tokens.
    */
-  function() payable {
-    throw;
+  function() public payable {
+    revert();
   }
 
   /**
@@ -415,14 +411,14 @@ contract CrowdsaleBase is Haltable {
     if(getState() == State.PreFunding) {
       // Are we whitelisted for early deposit
       if(!earlyParticipantWhitelist[receiver]) {
-        throw;
+        revert();
       }
     } else if(getState() == State.Funding) {
       // Retail participants can only come in when the crowdsale is running
       // pass
     } else {
       // Unwanted state
-      throw;
+      revert();
     }
 
     uint weiAmount = msg.value;
@@ -456,7 +452,7 @@ contract CrowdsaleBase is Haltable {
     assignTokens(receiver, tokenAmount);
 
     // Pocket the money, or fail the crowdsale if we for some reason cannot send the money to our multisig
-    if(!multisigWallet.send(weiAmount)) throw;
+    if(!multisigWallet.send(weiAmount)) revert();
 
     // Tell us invest was success
     Invested(receiver, weiAmount, tokenAmount, customerId);
@@ -473,7 +469,7 @@ contract CrowdsaleBase is Haltable {
 
     // Already finalized
     if(finalized) {
-      throw;
+      revert();
     }
 
     // Finalizing is optional. We only call it if we are given a finalizing agent.
@@ -489,12 +485,12 @@ contract CrowdsaleBase is Haltable {
    *
    * Design choice: no state restrictions on setting this, so that we can fix fat finger mistakes.
    */
-  function setFinalizeAgent(FinalizeAgent addr) onlyOwner {
+  function setFinalizeAgent(FinalizeAgent addr) public onlyOwner {
     finalizeAgent = addr;
 
     // Don't allow setting bad agent
     if(!finalizeAgent.isFinalizeAgent()) {
-      throw;
+      revert();
     }
   }
 
@@ -508,14 +504,14 @@ contract CrowdsaleBase is Haltable {
    * but we trust owners know what they are doing.
    *
    */
-  function setEndsAt(uint time) onlyOwner {
+  function setEndsAt(uint time) public onlyOwner {
 
     if(now > time) {
-      throw; // Don't change past
+      revert(); // Don't change past
     }
 
     if(startsAt > time) {
-      throw; // Prevent human mistakes
+      revert(); // Prevent human mistakes
     }
 
     endsAt = time;
@@ -527,12 +523,12 @@ contract CrowdsaleBase is Haltable {
    *
    * Design choice: no state restrictions on the set, so that we can fix fat finger mistakes.
    */
-  function setPricingStrategy(PricingStrategy _pricingStrategy) onlyOwner {
+  function setPricingStrategy(PricingStrategy _pricingStrategy) public onlyOwner {
     pricingStrategy = _pricingStrategy;
 
     // Don't allow setting bad agent
     if(!pricingStrategy.isPricingStrategy()) {
-      throw;
+      revert();
     }
   }
 
@@ -547,7 +543,7 @@ contract CrowdsaleBase is Haltable {
 
     // Change
     if(investorCount > MAX_INVESTMENTS_BEFORE_MULTISIG_CHANGE) {
-      throw;
+      revert();
     }
 
     multisigWallet = addr;
@@ -559,7 +555,7 @@ contract CrowdsaleBase is Haltable {
    * The team can transfer the funds back on the smart contract in the case the minimum goal was not reached..
    */
   function loadRefund() public payable inState(State.Failure) {
-    if(msg.value == 0) throw;
+    if(msg.value == 0) revert();
     loadedRefund = loadedRefund.plus(msg.value);
   }
 
@@ -571,11 +567,11 @@ contract CrowdsaleBase is Haltable {
    */
   function refund() public inState(State.Refunding) {
     uint256 weiValue = investedAmountOf[msg.sender];
-    if (weiValue == 0) throw;
+    if (weiValue == 0) revert();
     investedAmountOf[msg.sender] = 0;
     weiRefunded = weiRefunded.plus(weiValue);
     Refund(msg.sender, weiValue);
-    if (!msg.sender.send(weiValue)) throw;
+    if (!msg.sender.send(weiValue)) revert();
   }
 
   /**
@@ -617,7 +613,7 @@ contract CrowdsaleBase is Haltable {
   }
 
   /** This is for manual testing of multisig wallet interaction */
-  function setOwnerTestValue(uint val) onlyOwner {
+  function setOwnerTestValue(uint val) public onlyOwner {
     ownerTestValue = val;
   }
 
@@ -626,14 +622,14 @@ contract CrowdsaleBase is Haltable {
    *
    * TODO: Fix spelling error in the name
    */
-  function setEarlyParicipantWhitelist(address addr, bool status) onlyOwner {
+  function setEarlyParicipantWhitelist(address addr, bool status) public onlyOwner {
     earlyParticipantWhitelist[addr] = status;
     Whitelisted(addr, status);
   }
 
 
   /** Interface marker. */
-  function isCrowdsale() public constant returns (bool) {
+  function isCrowdsale() public pure returns (bool) {
     return true;
   }
 
@@ -643,7 +639,7 @@ contract CrowdsaleBase is Haltable {
 
   /** Modified allowing execution only if the crowdsale is currently running.  */
   modifier inState(State state) {
-    if(getState() != state) throw;
+    if(getState() != state) revert();
     _;
   }
 
@@ -667,7 +663,7 @@ contract CrowdsaleBase is Haltable {
    *
    * @return true if taking this investment would break our cap rules
    */
-  function isBreakingCap(uint weiAmount, uint tokenAmount, uint weiRaisedTotal, uint tokensSoldTotal) constant returns (bool limitBroken);
+  function isBreakingCap(uint weiAmount, uint tokenAmount, uint weiRaisedTotal, uint tokensSoldTotal) public constant returns (bool limitBroken);
 
   /**
    * Check if the current crowdsale is full and we can no longer sell any tokens.
@@ -708,14 +704,14 @@ contract AllocatedCrowdsaleMixin is CrowdsaleBase {
    * @param _beneficiary The account who has performed approve() to allocate tokens for the token sale.
    *
    */
-  function AllocatedCrowdsaleMixin(address _beneficiary) {
+  function AllocatedCrowdsaleMixin(address _beneficiary) public {
     beneficiary = _beneficiary;
   }
 
   /**
    * Called from invest() to confirm if the curret investment does not break our cap rule.
    */
-  function isBreakingCap(uint weiAmount, uint tokenAmount, uint weiRaisedTotal, uint tokensSoldTotal) constant returns (bool limitBroken) {
+  function isBreakingCap(uint /*weiAmount*/, uint tokenAmount, uint /*weiRaisedTotal*/, uint /*tokensSoldTotal*/) public constant returns (bool limitBroken) {
     if(tokenAmount > getTokensLeft()) {
       return true;
     } else {
@@ -743,7 +739,7 @@ contract AllocatedCrowdsaleMixin is CrowdsaleBase {
    * Use approve() given to this crowdsale to distribute the tokens.
    */
   function assignTokens(address receiver, uint tokenAmount) internal {
-    if(!token.transferFrom(beneficiary, receiver, tokenAmount)) throw;
+    if(!token.transferFrom(beneficiary, receiver, tokenAmount)) revert();
   }
 }
 
@@ -771,7 +767,7 @@ library BytesDeserializer {
   /**
    * Extract 256-bit worth of data from the bytes stream.
    */
-  function slice32(bytes b, uint offset) constant returns (bytes32) {
+  function slice32(bytes b, uint offset) public pure returns (bytes32) {
     bytes32 out;
 
     for (uint i = 0; i < 32; i++) {
@@ -783,7 +779,7 @@ library BytesDeserializer {
   /**
    * Extract Ethereum address worth of data from the bytes stream.
    */
-  function sliceAddress(bytes b, uint offset) constant returns (address) {
+  function sliceAddress(bytes b, uint offset) public pure returns (address) {
     bytes32 out;
 
     for (uint i = 0; i < 20; i++) {
@@ -795,7 +791,7 @@ library BytesDeserializer {
   /**
    * Extract 128-bit worth of data from the bytes stream.
    */
-  function slice16(bytes b, uint offset) constant returns (bytes16) {
+  function slice16(bytes b, uint offset) public pure returns (bytes16) {
     bytes16 out;
 
     for (uint i = 0; i < 16; i++) {
@@ -807,7 +803,7 @@ library BytesDeserializer {
   /**
    * Extract 32-bit worth of data from the bytes stream.
    */
-  function slice4(bytes b, uint offset) constant returns (bytes4) {
+  function slice4(bytes b, uint offset) public pure returns (bytes4) {
     bytes4 out;
 
     for (uint i = 0; i < 4; i++) {
@@ -819,7 +815,7 @@ library BytesDeserializer {
   /**
    * Extract 16-bit worth of data from the bytes stream.
    */
-  function slice2(bytes b, uint offset) constant returns (bytes2) {
+  function slice2(bytes b, uint offset) public pure returns (bytes2) {
     bytes2 out;
 
     for (uint i = 0; i < 2; i++) {
@@ -838,13 +834,18 @@ library BytesDeserializer {
  *
  * @notice This should be a library, but for the complexity and toolchain fragility risks involving of linking library inside library, we put this as a mix-in.
  */
+/**
+ * A mix-in contract to decode different signed KYC payloads.
+ *
+ * @notice This should be a library, but for the complexity and toolchain fragility risks involving of linking library inside library, we currently use this as a helper method mix-in.
+ */
 contract KYCPayloadDeserializer {
 
   using BytesDeserializer for bytes;
 
+  // @notice this struct describes what kind of data we include in the payload, we do not use this directly
   // The bytes payload set on the server side
   // total 56 bytes
-
   struct KYCPayload {
 
     /** Customer whitelisted address where the deposit can come from */
@@ -861,41 +862,18 @@ contract KYCPayloadDeserializer {
 
     /** Max amount this customer can to invest in ETH. Set zero if no maximum. Expressed as parts of 10000. 1 ETH = 10000. */
     uint32 maxETH; // 4 bytes
+
+    /**
+     * Information about the price promised for this participant. It can be pricing tier id or directly one token price in weis.
+     * @notice This is a later addition and not supported in all scenarios yet.
+     */
+    uint256 pricingInfo;
   }
-
-  /**
-   * Deconstruct server-side byte data to structured data.
-   */
-
-  function deserializeKYCPayload(bytes dataframe) internal constant returns(KYCPayload decodedPayload) {
-    KYCPayload payload;
-    payload.whitelistedAddress = dataframe.sliceAddress(0);
-    payload.customerId = uint128(dataframe.slice16(20));
-    payload.minETH = uint32(dataframe.slice4(36));
-    payload.maxETH = uint32(dataframe.slice4(40));
-    return payload;
-  }
-
-  /**
-   * Helper function to allow us to return the decoded payload to an external caller for testing.
-   *
-   * TODO: Some sort of compiler issue (?) with memory keyword. Tested with solc 0.4.16 and solc 0.4.18.
-   * If used, makes KYCCrowdsale to set itself to a bad state getState() returns 5 (Failure). Overrides some memory?
-   */
-  /*
-  function broken_getKYCPayload(bytes dataframe) public constant returns(address whitelistedAddress, uint128 customerId, uint32 minEth, uint32 maxEth) {
-    KYCPayload memory payload = deserializeKYCPayload(dataframe);
-    payload.whitelistedAddress = dataframe.sliceAddress(0);
-    payload.customerId = uint128(dataframe.slice16(20));
-    payload.minETH = uint32(dataframe.slice4(36));
-    payload.maxETH = uint32(dataframe.slice4(40));
-    return (payload.whitelistedAddress, payload.customerId, payload.minETH, payload.maxETH);
-  }*/
 
   /**
    * Same as above, does not seem to cause any issue.
    */
-  function getKYCPayload(bytes dataframe) public constant returns(address whitelistedAddress, uint128 customerId, uint32 minEth, uint32 maxEth) {
+  function getKYCPayload(bytes dataframe) public pure returns(address whitelistedAddress, uint128 customerId, uint32 minEth, uint32 maxEth) {
     address _whitelistedAddress = dataframe.sliceAddress(0);
     uint128 _customerId = uint128(dataframe.slice16(20));
     uint32 _minETH = uint32(dataframe.slice4(36));
@@ -903,8 +881,21 @@ contract KYCPayloadDeserializer {
     return (_whitelistedAddress, _customerId, _minETH, _maxETH);
   }
 
-}
+  /**
+   * Same as above, but with pricing information included in the payload as the last integer.
+   *
+   * @notice In a long run, deprecate the legacy methods above and only use this payload.
+   */
+  function getKYCPresalePayload(bytes dataframe) public pure returns(address whitelistedAddress, uint128 customerId, uint32 minEth, uint32 maxEth, uint256 pricingInfo) {
+    address _whitelistedAddress = dataframe.sliceAddress(0);
+    uint128 _customerId = uint128(dataframe.slice16(20));
+    uint32 _minETH = uint32(dataframe.slice4(36));
+    uint32 _maxETH = uint32(dataframe.slice4(40));
+    uint256 _pricingInfo = uint256(dataframe.slice32(44));
+    return (_whitelistedAddress, _customerId, _minETH, _maxETH, _pricingInfo);
+  }
 
+}
 
 /**
  * A crowdsale that allows only signed payload with server-side specified buy in limits.
@@ -924,7 +915,7 @@ contract KYCCrowdsale is AllocatedCrowdsaleMixin, KYCPayloadDeserializer {
   /**
    * Constructor.
    */
-  function KYCCrowdsale(address _token, PricingStrategy _pricingStrategy, address _multisigWallet, uint _start, uint _end, uint _minimumFundingGoal, address _beneficiary) CrowdsaleBase(_token, _pricingStrategy, _multisigWallet, _start, _end, _minimumFundingGoal) AllocatedCrowdsaleMixin(_beneficiary) {
+  function KYCCrowdsale(address _token, PricingStrategy _pricingStrategy, address _multisigWallet, uint _start, uint _end, uint _minimumFundingGoal, address _beneficiary) CrowdsaleBase(_token, _pricingStrategy, _multisigWallet, _start, _end, _minimumFundingGoal) public AllocatedCrowdsaleMixin(_beneficiary) {
 
   }
 
@@ -947,8 +938,12 @@ contract KYCCrowdsale is AllocatedCrowdsaleMixin, KYCPayloadDeserializer {
     } else {
 
       bytes32 hash = sha256(dataframe);
-
-      var (whitelistedAddress, customerId, minETH, maxETH) = getKYCPayload(dataframe);
+      
+      address whitelistedAddress;
+      uint128 customerId;
+      uint32 minETH;
+      uint32 maxETH;
+      (whitelistedAddress, customerId, minETH, maxETH) = getKYCPayload(dataframe);
 
       // Check that the KYC data is signed by our server
       require(ecrecover(hash, v, r, s) == signerAddress);
@@ -974,7 +969,7 @@ contract KYCCrowdsale is AllocatedCrowdsaleMixin, KYCPayloadDeserializer {
 
   /// @dev This function can set the server side address
   /// @param _signerAddress The address derived from server's private key
-  function setSignerAddress(address _signerAddress) onlyOwner {
+  function setSignerAddress(address _signerAddress) public onlyOwner {
     signerAddress = _signerAddress;
     SignerChanged(signerAddress);
   }
