@@ -528,12 +528,17 @@ contract ReleasableToken is ERC20, Ownable {
   /** Map of agents that are allowed to transfer tokens regardless of the lock down period. These are crowdsale contracts and possible the team multisig itself. */
   mapping (address => bool) public transferAgents;
 
+  /** Map of addresses that are locked to transfer tokens  */
+  mapping (address => bool) public lockAddresses;
+
   /**
    * Limit token transfer until the crowdsale is over.
    *
    */
   modifier canTransfer(address _sender) {
-
+    if(setLockAddress[_sender]) {
+      revert();
+    }
     if(!released) {
         if(!transferAgents[_sender]) {
             revert();
@@ -559,6 +564,13 @@ contract ReleasableToken is ERC20, Ownable {
    */
   function setTransferAgent(address addr, bool state) onlyOwner inReleaseState(false) public {
     transferAgents[addr] = state;
+  }
+
+  /**
+   * Owner can lock a particular address (a crowdsale contract)
+   */
+  function setLockAddress(address addr, bool state) onlyOwner inReleaseState(false) public {
+    lockAddresses[addr] = state;
   }
 
   /**
@@ -702,7 +714,6 @@ contract MintableToken is StandardTokenExt, Ownable {
     _;
   }
 }
-
 
 
 /**

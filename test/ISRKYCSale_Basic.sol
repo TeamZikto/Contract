@@ -4,13 +4,6 @@
  * Licensed under the Apache License, version 2.0: https://github.com/TokenMarketNet/ico/blob/master/LICENSE.txt
  */
 
-
-/**
- * This smart contract code is Copyright 2017 TokenMarket Ltd. For more information see https://tokenmarket.net
- *
- * Licensed under the Apache License, version 2.0: https://github.com/TokenMarketNet/ico/blob/master/LICENSE.txt
- */
-
 pragma solidity ^0.4.18;
 
 
@@ -100,51 +93,35 @@ contract Haltable is Ownable {
 
 
 /**
- * @title SafeMath
- * @dev Math operations with safety checks that throw on error
+ * Safe unsigned safe math.
+ *
+ * https://blog.aragon.one/library-driven-development-in-solidity-2bebcaf88736#.750gwtwli
+ *
+ * Originally from https://raw.githubusercontent.com/AragonOne/zeppelin-solidity/master/contracts/SafeMathLib.sol
+ *
+ * Maintained here until merged to mainline zeppelin-solidity.
+ *
  */
-library SafeMath {
+library SafeMathLib {
 
-  /**
-  * @dev Multiplies two numbers, throws on overflow.
-  */
-  function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-    if (a == 0) {
-      return 0;
-    }
-    uint256 c = a * b;
-    assert(c / a == b);
+  function times(uint a, uint b) internal pure returns (uint) {
+    uint c = a * b;
+    assert(a == 0 || c / a == b);
     return c;
   }
 
-  /**
-  * @dev Integer division of two numbers, truncating the quotient.
-  */
-  function div(uint256 a, uint256 b) internal pure returns (uint256) {
-    // assert(b > 0); // Solidity automatically throws when dividing by 0
-    uint256 c = a / b;
-    // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-    return c;
-  }
-
-  /**
-  * @dev Substracts two numbers, throws on overflow (i.e. if subtrahend is greater than minuend).
-  */
-  function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+  function minus(uint a, uint b) internal pure returns (uint) {
     assert(b <= a);
     return a - b;
   }
 
-  /**
-  * @dev Adds two numbers, throws on overflow.
-  */
-  function add(uint256 a, uint256 b) internal pure returns (uint256) {
-    uint256 c = a + b;
-    assert(c >= a);
+  function plus(uint a, uint b)  internal pure returns (uint) {
+    uint c = a + b;
+    assert(c>=a);
     return c;
   }
-}
 
+}
 
 
 
@@ -171,10 +148,6 @@ contract ERC20Basic {
   event Transfer(address indexed from, address indexed to, uint256 value);
 }
 
-/**
- * @title ERC20 interface
- * @dev see https://github.com/ethereum/EIPs/issues/20
- */
 contract ERC20 is ERC20Basic {
   function allowance(address owner, address spender) public view returns (uint256);
   function transferFrom(address from, address to, uint256 value) public returns (bool);
@@ -288,7 +261,7 @@ contract CrowdsaleBase is Haltable {
   /* Max investment count when we are still allowed to change the multisig address */
   uint public MAX_INVESTMENTS_BEFORE_MULTISIG_CHANGE = 5;
 
-  using SafeMath for uint;
+  using SafeMathLib for uint;
 
   /* The token we are selling */
   FractionalERC20 public token;
@@ -301,6 +274,9 @@ contract CrowdsaleBase is Haltable {
 
   /* tokens will be transfered from this address */
   address public multisigWallet;
+
+  /* if the funding goal is not reached, investors may withdraw their funds */
+  uint public minimumFundingGoal;
 
   /* the UNIX timestamp start date of the crowdsale */
   uint public startsAt;
@@ -349,8 +325,9 @@ contract CrowdsaleBase is Haltable {
    * - Success: Minimum funding goal reached
    * - Failure: Minimum funding goal not reached before ending time
    * - Finalized: The finalized has been called and succesfully executed
+   * - Refunding: Refunds are loaded on the contract for reclaim.
    */
-  enum State{Unknown, Preparing, PreFunding, Funding, Success, Failure, Finalized}
+  enum State{Unknown, Preparing, PreFunding, Funding, Success, Failure, Finalized, Refunding}
 
   // A new investment was made
   event Invested(address investor, uint weiAmount, uint tokenAmount, uint128 customerId);
@@ -369,7 +346,7 @@ contract CrowdsaleBase is Haltable {
 
   State public testState;
 
-  function CrowdsaleBase(address _token, PricingStrategy _pricingStrategy, address _multisigWallet, uint _start, uint _end) public {
+  function CrowdsaleBase(address _token, PricingStrategy _pricingStrategy, address _multisigWallet, uint _start, uint _end, uint _minimumFundingGoal) public {
 
     owner = msg.sender;
 
@@ -398,6 +375,9 @@ contract CrowdsaleBase is Haltable {
     if(startsAt >= endsAt) {
         revert();
     }
+
+    // Minimum funding goal can be zero
+    minimumFundingGoal = _minimumFundingGoal;
   }
 
   /**
@@ -448,15 +428,15 @@ contract CrowdsaleBase is Haltable {
     }
 
     // Update investor
-    investedAmountOf[receiver] = investedAmountOf[receiver].add(weiAmount);
-    tokenAmountOf[receiver] = tokenAmountOf[receiver].add(tokenAmount);
+    investedAmountOf[receiver] = investedAmountOf[receiver].plus(weiAmount);
+    tokenAmountOf[receiver] = tokenAmountOf[receiver].plus(tokenAmount);
 
     // Update totals
-    weiRaised = weiRaised.add(weiAmount);
-    tokensSold = tokensSold.add(tokenAmount);
+    weiRaised = weiRaised.plus(weiAmount);
+    tokensSold = tokensSold.plus(tokenAmount);
 
     if(pricingStrategy.isPresalePurchase(receiver)) {
-        presaleWeiRaised = presaleWeiRaised.add(weiAmount);
+        presaleWeiRaised = presaleWeiRaised.plus(weiAmount);
     }
 
     // Check that we did not bust the cap
@@ -569,7 +549,29 @@ contract CrowdsaleBase is Haltable {
    */
   function loadRefund() public payable inState(State.Failure) {
     if(msg.value == 0) revert();
-    loadedRefund = loadedRefund.add(msg.value);
+    loadedRefund = loadedRefund.plus(msg.value);
+  }
+
+  /**
+   * Investors can claim refund.
+   *
+   * Note that any refunds from proxy buyers should be handled separately,
+   * and not through this contract.
+   */
+  function refund() public inState(State.Refunding) {
+    uint256 weiValue = investedAmountOf[msg.sender];
+    if (weiValue == 0) revert();
+    investedAmountOf[msg.sender] = 0;
+    weiRefunded = weiRefunded.plus(weiValue);
+    Refund(msg.sender, weiValue);
+    if (!msg.sender.send(weiValue)) revert();
+  }
+
+  /**
+   * @return true if the crowdsale has raised enough money to be a successful.
+   */
+  function isMinimumGoalReached() public constant returns (bool reached) {
+    return weiRaised >= minimumFundingGoal;
   }
 
   /**
@@ -598,7 +600,9 @@ contract CrowdsaleBase is Haltable {
     else if (!pricingStrategy.isSane(address(this))) return State.Preparing;
     else if (block.timestamp < startsAt) return State.PreFunding;
     else if (block.timestamp <= endsAt && !isCrowdsaleFull()) return State.Funding;
-    else return State.Success;
+    else if (isMinimumGoalReached()) return State.Success;
+    else if (!isMinimumGoalReached() && weiRaised > 0 && loadedRefund >= weiRaised) return State.Refunding;
+    else return State.Failure;
   }
 
   /** This is for manual testing of multisig wallet interaction */
@@ -756,7 +760,7 @@ library BytesDeserializer {
   /**
    * Extract 256-bit worth of data from the bytes stream.
    */
-  function slice32(bytes b, uint offset) internal pure returns (bytes32) {
+  function slice32(bytes b, uint offset) public pure returns (bytes32) {
     bytes32 out;
 
     for (uint i = 0; i < 32; i++) {
@@ -768,7 +772,7 @@ library BytesDeserializer {
   /**
    * Extract Ethereum address worth of data from the bytes stream.
    */
-  function sliceAddress(bytes b, uint offset) internal pure returns (address) {
+  function sliceAddress(bytes b, uint offset) public pure returns (address) {
     bytes32 out;
 
     for (uint i = 0; i < 20; i++) {
@@ -780,7 +784,7 @@ library BytesDeserializer {
   /**
    * Extract 128-bit worth of data from the bytes stream.
    */
-  function slice16(bytes b, uint offset) internal pure returns (bytes16) {
+  function slice16(bytes b, uint offset) public pure returns (bytes16) {
     bytes16 out;
 
     for (uint i = 0; i < 16; i++) {
@@ -792,7 +796,7 @@ library BytesDeserializer {
   /**
    * Extract 32-bit worth of data from the bytes stream.
    */
-  function slice4(bytes b, uint offset) internal pure returns (bytes4) {
+  function slice4(bytes b, uint offset) public pure returns (bytes4) {
     bytes4 out;
 
     for (uint i = 0; i < 4; i++) {
@@ -804,7 +808,7 @@ library BytesDeserializer {
   /**
    * Extract 16-bit worth of data from the bytes stream.
    */
-  function slice2(bytes b, uint offset) internal pure returns (bytes2) {
+  function slice2(bytes b, uint offset) public pure returns (bytes2) {
     bytes2 out;
 
     for (uint i = 0; i < 2; i++) {
@@ -904,7 +908,7 @@ contract KYCCrowdsale is AllocatedCrowdsaleMixin, KYCPayloadDeserializer {
   /**
    * Constructor.
    */
-  function KYCCrowdsale(address _token, PricingStrategy _pricingStrategy, address _multisigWallet, uint _start, uint _end, address _beneficiary) CrowdsaleBase(_token, _pricingStrategy, _multisigWallet, _start, _end) public AllocatedCrowdsaleMixin(_beneficiary) {
+  function KYCCrowdsale(address _token, PricingStrategy _pricingStrategy, address _multisigWallet, uint _start, uint _end, uint _minimumFundingGoal, address _beneficiary) CrowdsaleBase(_token, _pricingStrategy, _multisigWallet, _start, _end, _minimumFundingGoal) public AllocatedCrowdsaleMixin(_beneficiary) {
 
   }
 
