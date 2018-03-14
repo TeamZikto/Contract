@@ -152,3 +152,78 @@ contract FlatPricing is PricingStrategy {
   }
 
 }
+
+/**
+ * Fixed crowdsale pricing - everybody gets the same price.
+ */
+contract FlatMinMaxPricing is PricingStrategy {
+
+  using SafeMath for uint256;
+
+  /* How many weis one token costs */
+  uint public oneTokenInWei;
+  uint public minWei;
+  uint public maxWei;
+
+  function FlatMinMaxPricing(uint _oneTokenInWei, uint _minWei, uint _maxWei) public {
+    require(_oneTokenInWei > 0);
+    require(_minWei > 0);
+    require(_maxWei > 0);
+    oneTokenInWei = _oneTokenInWei;
+    minWei = _minWei;
+    maxWei = _maxWei;
+  }
+
+  /**
+   * Calculate the current price for buy in amount.
+   *
+   */
+  function calculatePrice(uint value, uint /*weiRaised*/, uint /*tokensSold*/, address /*msgSender*/, uint decimals) public constant returns (uint) {
+    if (value < minWei) {
+      return 0;
+    }
+    if (vale > maxWei) {
+      return 0;
+    }
+    uint multiplier = 10 ** decimals;
+    return value.mul(multiplier) / oneTokenInWei;
+  }
+
+}
+
+
+/**
+ * Fixed crowdsale pricing - everybody gets the same price.
+ */
+contract PresalePricing is PricingStrategy, Ownable {
+
+  using SafeMath for uint256;
+
+  mapping (address => uint) public preicoAddresses;
+
+  function PresalePricing() public {
+
+  }
+
+  function setPreicoAddress(address preicoAddress, uint pricePerToken)
+    public
+    onlyOwner
+  {
+    preicoAddresses[preicoAddress] = pricePerToken;
+  }
+
+  /**
+   * Calculate the current price for buy in amount.
+   *
+   */
+  function calculatePrice(uint value, uint /*weiRaised*/, uint /*tokensSold*/, address msgSender, uint decimals) public constant returns (uint) {
+    uint multiplier = 10 ** decimals;
+
+    // This investor is coming through pre-ico
+    if(preicoAddresses[msgSender] <= 0) {
+      return 0;
+    }
+    return value.mul(multiplier) / preicoAddresses[msgSender];
+  }
+
+}
