@@ -182,7 +182,7 @@ contract FlatMinMaxPricing is PricingStrategy {
     if (value < minWei) {
       return 0;
     }
-    if (vale > maxWei) {
+    if (value > maxWei) {
       return 0;
     }
     uint multiplier = 10 ** decimals;
