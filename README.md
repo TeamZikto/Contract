@@ -1,7 +1,14 @@
 ## Requirment
-- solidty 0.4.18 above
+- solidty 0.4.25 above
 
-## ISR
+## ISR (New)
+- name : Insureum Token
+- symbol : ISR
+- initialSupply : 297M (297000000000000000000000000)
+- decimals : 18
+- contract address : 
+
+## ISR (Old)
 - name : Insureum Token
 - symbol : ISR
 - initialSupply : 297M (297000000000000000000000000)
