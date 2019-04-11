@@ -10,7 +10,8 @@
  * @dev see https://github.com/ethereum/EIPs/issues/179
  */
 
-pragma solidity ^0.4.18;
+// UPDATE (Apr.2019): version upgraded to 0.4.25 from 0.4.18
+pragma solidity ^0.4.25;
 
 /**
  * @title ERC20Basic
@@ -101,7 +102,7 @@ contract BasicToken is ERC20Basic {
     // SafeMath.sub will throw if there is not enough balance.
     balances[msg.sender] = balances[msg.sender].sub(_value);
     balances[_to] = balances[_to].add(_value);
-    Transfer(msg.sender, _to, _value);
+    emit Transfer(msg.sender, _to, _value);
     return true;
   }
 
@@ -159,7 +160,7 @@ contract StandardToken is ERC20, BasicToken {
     balances[_from] = balances[_from].sub(_value);
     balances[_to] = balances[_to].add(_value);
     allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
-    Transfer(_from, _to, _value);
+    emit Transfer(_from, _to, _value);
     return true;
   }
 
@@ -175,7 +176,7 @@ contract StandardToken is ERC20, BasicToken {
    */
   function approve(address _spender, uint256 _value) public returns (bool) {
     allowed[msg.sender][_spender] = _value;
-    Approval(msg.sender, _spender, _value);
+    emit Approval(msg.sender, _spender, _value);
     return true;
   }
 
@@ -201,7 +202,7 @@ contract StandardToken is ERC20, BasicToken {
    */
   function increaseApproval(address _spender, uint _addedValue) public returns (bool) {
     allowed[msg.sender][_spender] = allowed[msg.sender][_spender].add(_addedValue);
-    Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
+    emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
     return true;
   }
 
@@ -222,7 +223,7 @@ contract StandardToken is ERC20, BasicToken {
     } else {
       allowed[msg.sender][_spender] = oldValue.sub(_subtractedValue);
     }
-    Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
+    emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
     return true;
   }
 
@@ -261,12 +262,12 @@ contract BurnableToken is StandardTokenExt {
     address burner = msg.sender;
     balances[burner] = balances[burner].sub(burnAmount);
     totalSupply_ = totalSupply_.sub(burnAmount);
-    Burned(burner, burnAmount);
+    emit Burned(burner, burnAmount);
 
     // Inform the blockchain explores that track the
     // balances only by a transfer event that the balance in this
     // address has decreased
-    Transfer(burner, BURN_ADDRESS, burnAmount);
+    emit Transfer(burner, BURN_ADDRESS, burnAmount);
   }
 }
 
@@ -330,7 +331,7 @@ contract UpgradeableToken is StandardTokenExt {
   /**
    * Do not allow construction without upgrade master set.
    */
-  function UpgradeableToken(address _upgradeMaster) public {
+  constructor(address _upgradeMaster) public {
     upgradeMaster = _upgradeMaster;
   }
 
@@ -356,7 +357,7 @@ contract UpgradeableToken is StandardTokenExt {
 
       // Upgrade agent reissues the tokens
       upgradeAgent.upgradeFrom(msg.sender, value);
-      Upgrade(msg.sender, upgradeAgent, value);
+      emit Upgrade(msg.sender, upgradeAgent, value);
   }
 
   /**
@@ -382,13 +383,13 @@ contract UpgradeableToken is StandardTokenExt {
       // Make sure that token supplies match in source and target
       if (upgradeAgent.originalSupply() != totalSupply_) revert();
 
-      UpgradeAgentSet(upgradeAgent);
+      emit UpgradeAgentSet(upgradeAgent);
   }
 
   /**
    * Get the state of the token upgrade.
    */
-  function getUpgradeState() public constant returns(UpgradeState) {
+  function getUpgradeState() public view returns(UpgradeState) {
     if(!canUpgrade()) return UpgradeState.NotAllowed;
     else if(address(upgradeAgent) == 0x00) return UpgradeState.WaitingForAgent;
     else if(totalUpgraded == 0) return UpgradeState.ReadyToUpgrade;
@@ -426,7 +427,7 @@ contract Ownable {
    * @dev The Ownable constructor sets the original `owner` of the contract to the sender
    * account.
    */
-  function Ownable() public {
+  constructor() public {
     owner = msg.sender;
   }
 
@@ -490,10 +491,10 @@ contract ReleasableToken is ERC20, Ownable {
 
   /**
    * Set the contract that can call release and make the token transferable.
-   *
    * Design choice. Allow reset the release agent to fix fat finger mistakes.
+   * UPDATE (Apr.2019): Now owner can permit some account as transfer agent any time.
    */
-  function setReleaseAgent(address addr) onlyOwner inReleaseState(false) public {
+  function setReleaseAgent(address addr) onlyOwner /* inReleaseState(false) */ public {
 
     // We don't do interface check here as we might want to a normal wallet address to act as a release agent
     releaseAgent = addr;
@@ -501,15 +502,17 @@ contract ReleasableToken is ERC20, Ownable {
 
   /**
    * Owner can allow a particular address (a crowdsale contract) to transfer tokens despite the lock up period.
+   * UPDATE (Apr.2019): Now owner can permit some account as transfer agent any time.
    */
-  function setTransferAgent(address addr, bool state) onlyOwner inReleaseState(false) public {
+  function setTransferAgent(address addr, bool state) onlyOwner /* inReleaseState(false) */ public {
     transferAgents[addr] = state;
   }
 
   /**
    * Owner can lock a particular address (a crowdsale contract)
+   * UPDATE (Apr.2019): Now owner can lock specific account in some cases.
    */
-  function setLockAddress(address addr, bool state) onlyOwner inReleaseState(false) public {
+  function setLockAddress(address addr, bool state) onlyOwner /*inReleaseState(false)*/ public {
     lockAddresses[addr] = state;
   }
 
@@ -522,13 +525,22 @@ contract ReleasableToken is ERC20, Ownable {
     released = true;
   }
 
-  /** The function can be called only before or after the tokens have been releasesd */
-  modifier inReleaseState(bool releaseState) {
-    if(releaseState != released) {
-        revert();
-    }
-    _;
+  /**
+   * UPDATE (Apr.2019): Now owner can lock whole transfer in some cases (i.e security accidents)
+   */
+  function lockTokenTransfer() public onlyOwner {
+    released = false;
   }
+
+  /** The function can be called only before or after the tokens have been releasesd
+   * UPDATE (Apr.201): Obsolete code, not used any more.
+   */
+    // modifier inReleaseState(bool releaseState) {
+    //   if(releaseState != released) {
+    //       revert();
+    //   }
+    //   _;
+    // }
 
   /** The function can be called only by a whitelisted release agent. */
   modifier onlyReleaseAgent() {
@@ -613,7 +625,7 @@ contract MintableToken is StandardTokenExt, Ownable {
 
     // This will make the mint transaction apper in EtherScan.io
     // We can remove this after there is a standardized minting event
-    Transfer(0, receiver, amount);
+    emit Transfer(0, receiver, amount);
   }
 
   /**
@@ -621,7 +633,7 @@ contract MintableToken is StandardTokenExt, Ownable {
    */
   function setMintAgent(address addr, bool state) onlyOwner canMint public {
     mintAgents[addr] = state;
-    MintingAgentChanged(addr, state);
+    emit MintingAgentChanged(addr, state);
   }
 
   modifier onlyMintAgent() {
@@ -673,7 +685,7 @@ contract CrowdsaleToken is ReleasableToken, MintableToken, UpgradeableToken {
    * @param _decimals Number of decimal places
    * @param _mintable Are new tokens created over the crowdsale or do we distribute only the initial supply? Note that when the token becomes transferable the minting always ends.
    */
-  function CrowdsaleToken(string _name, string _symbol, uint _initialSupply, uint _decimals, bool _mintable) public
+  constructor(string _name, string _symbol, uint _initialSupply, uint _decimals, bool _mintable) public
     UpgradeableToken(msg.sender) {
 
     // Create any address, can be transferred
@@ -692,7 +704,7 @@ contract CrowdsaleToken is ReleasableToken, MintableToken, UpgradeableToken {
     balances[owner] = totalSupply_;
 
     if(totalSupply_ > 0) {
-      Minted(owner, totalSupply_);
+      emit Minted(owner, totalSupply_);
     }
 
     // No more new supply allowed after the token creation
@@ -715,7 +727,7 @@ contract CrowdsaleToken is ReleasableToken, MintableToken, UpgradeableToken {
   /**
    * Allow upgrade agent functionality kick in only if the crowdsale was success.
    */
-  function canUpgrade() public constant returns(bool) {
+  function canUpgrade() public view returns(bool) {
     return released;
   }
 
@@ -732,7 +744,7 @@ contract CrowdsaleToken is ReleasableToken, MintableToken, UpgradeableToken {
     name = _name;
     symbol = _symbol;
 
-    UpdatedTokenInformation(name, symbol);
+    emit UpdatedTokenInformation(name, symbol);
   }
 
 }
@@ -744,7 +756,7 @@ contract CrowdsaleToken is ReleasableToken, MintableToken, UpgradeableToken {
  */
 contract BurnableCrowdsaleToken is BurnableToken, CrowdsaleToken {
 
-  function BurnableCrowdsaleToken(string _name, string _symbol, uint _initialSupply, uint _decimals, bool _mintable) public
+  constructor(string _name, string _symbol, uint _initialSupply, uint _decimals, bool _mintable) public
     CrowdsaleToken(_name, _symbol, _initialSupply, _decimals, _mintable) {
 
   }
@@ -771,7 +783,7 @@ contract AMLToken is BurnableCrowdsaleToken {
   // An event when the owner has reclaimed non-released tokens
   event OwnerReclaim(address fromWhom, uint amount);
 
-  function AMLToken(string _name, string _symbol, uint _initialSupply, uint _decimals, bool _mintable) public BurnableCrowdsaleToken(_name, _symbol, _initialSupply, _decimals, _mintable) {
+  constructor(string _name, string _symbol, uint _initialSupply, uint _decimals, bool _mintable) public BurnableCrowdsaleToken(_name, _symbol, _initialSupply, _decimals, _mintable) {
 
   }
 
@@ -779,12 +791,13 @@ contract AMLToken is BurnableCrowdsaleToken {
   ///      the token is not released yet. Refund will be handled offband.
   /// @param fromWhom address of the participant whose tokens we want to claim
   function transferToOwner(address fromWhom) public onlyOwner {
-    if (released) revert();
+    // UPDATE (Apr.2019): Onwer can reclaim any time in some cases (i.e. security accidents)
+    // if (released) revert();
 
     uint amount = balanceOf(fromWhom);
     balances[fromWhom] = balances[fromWhom].sub(amount);
     balances[owner] = balances[owner].add(amount);
-    Transfer(fromWhom, owner, amount);
-    OwnerReclaim(fromWhom, amount);
+    emit Transfer(fromWhom, owner, amount);
+    emit OwnerReclaim(fromWhom, amount);
   }
 }
