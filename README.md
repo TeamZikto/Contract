@@ -6,7 +6,7 @@
 - symbol : ISR
 - initialSupply : 297M (297000000000000000000000000)
 - decimals : 18
-- contract address : 
+- contract address : 0xd4a293ae8bb9e0be12e99eb19d48239e8c83a136
 
 ## ISR (Old)
 - name : Insureum Token
