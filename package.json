@@ -1,0 +1,23 @@
+{
+  "name": "contract",
+  "version": "1.0.0",
+  "description": "- solidty 0.4.25 above",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TeamZikto/Contract.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TeamZikto/Contract/issues"
+  },
+  "homepage": "https://github.com/TeamZikto/Contract#readme",
+  "dependencies": {
+    "caver-js": "^0.8.0",
+    "truffle-assertions": "^0.9.0"
+  }
+}
