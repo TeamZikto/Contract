@@ -24,6 +24,8 @@
 // const fs = require('fs');
 // const mnemonic = fs.readFileSync(".secret").toString().trim();
 
+const config= require('./config');
+
 module.exports = {
   /**
    * Networks define how you connect to your ethereum client and let you set the
@@ -37,9 +39,9 @@ module.exports = {
 
   networks: {
     klaytn: {
-      host: 'dev.zikto.com',
+      host: config.env.host,
       port: 8551, 
-      from: '0x32d7fece444a1cc31a2b6309e657268a8e2d1d5a',
+      from: config.env.address,
       network_id: '1001',
       gas: 20000000,
       gasPrice: 25000000000,
