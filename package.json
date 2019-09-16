@@ -18,6 +18,7 @@
   "homepage": "https://github.com/TeamZikto/Contract#readme",
   "dependencies": {
     "caver-js": "^0.8.0",
-    "truffle-assertions": "^0.9.0"
+    "truffle-assertions": "^0.9.0",
+    "truffle-hdwallet-provider-klaytn": "^1.0.13-a"
   }
 }

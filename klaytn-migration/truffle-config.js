@@ -25,6 +25,7 @@
 // const mnemonic = fs.readFileSync(".secret").toString().trim();
 
 const config= require('./config');
+const HDWalletProvider = require("truffle-hdwallet-provider-klaytn");
 
 module.exports = {
   /**
@@ -39,12 +40,13 @@ module.exports = {
 
   networks: {
     klaytn: {
-      host: config.env.host,
+      // host: config.env.host,
+      provider:() => new HDWalletProvider( config.env.PRIVATE_KEY, config.env.URL ),
       port: 8551, 
-      from: config.env.address,
+      // from: config.env.address,
       network_id: '1001',
-      gas: 20000000,
-      gasPrice: 25000000000,
+      gas: 8500000,
+      gasPrice: null,
     }
     // Useful for testing. The `development` name is special - truffle uses it by default
     // if it's defined here and no other network is specified at the command line.
