@@ -1,4 +1,3 @@
-var InsureumMultiSigAudit = artifacts.require("./Challenge.sol");
 var InsureumToken = artifacts.require("./InsureumToken.sol");
 var Challenge = artifacts.require("./Challenge.sol");
 
@@ -16,7 +15,6 @@ const truffleAssert = require('truffle-assertions');
 // ------------------------------------------------------------------
 contract('Challenge',  async function(accounts){
     var insureum;
-    var insurance;
     var challenge;
 
     const joinAmount = 10000 * Math.pow(10, 18);

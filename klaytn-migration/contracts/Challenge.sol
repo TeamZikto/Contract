@@ -44,7 +44,10 @@ contract Challenge {
 
     function join(uint _userId) public {
         require(map[msg.sender] == State.Init, "Already have joined the challenge");
-
+        require(
+            ERC20Interface(tokenAddress).approve(this, amount),
+            "token.transferFrom failed !!"
+        );
         require(
             ERC20Interface(tokenAddress).transferFrom(msg.sender, address(this), amount),
             "token.transferFrom failed !!"
@@ -72,11 +75,11 @@ contract Challenge {
         }
     }
 
-    function getStateOfAddress(address _address) public returns (State) {
+    function getStateOfAddress(address _address) public view returns (State) {
         return map[_address];
     }
 
-    function getStateOfUser(uint _userId) public returns (State){
+    function getStateOfUser(uint _userId) public view returns (State){
         address userAddress = userId[_userId];
 
         return map[userAddress];
