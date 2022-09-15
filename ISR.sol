@@ -1,803 +1,510 @@
-/**
- * This smart contract code is Copyright 2017 TokenMarket Ltd. For more information see https://tokenmarket.net
- *
- * Licensed under the Apache License, version 2.0: https://github.com/TokenMarketNet/ico/blob/master/LICENSE.txt
- */
+// SPDX-License-Identifier: MIT
+// OpenZeppelin Contracts (last updated v4.6.0) (token/ERC20/IERC20.sol)
+
+pragma solidity ^0.8.0;
 
 /**
- * @title ERC20Basic
- * @dev Simpler version of ERC20 interface
- * @dev see https://github.com/ethereum/EIPs/issues/179
+ * @dev Interface of the ERC20 standard as defined in the EIP.
  */
+interface IERC20 {
+    /**
+     * @dev Emitted when `value` tokens are moved from one account (`from`) to
+     * another (`to`).
+     *
+     * Note that `value` may be zero.
+     */
+    event Transfer(address indexed from, address indexed to, uint256 value);
 
-// UPDATE (Apr.2019): version upgraded to 0.4.25 from 0.4.18
-pragma solidity ^0.4.25;
+    /**
+     * @dev Emitted when the allowance of a `spender` for an `owner` is set by
+     * a call to {approve}. `value` is the new allowance.
+     */
+    event Approval(address indexed owner, address indexed spender, uint256 value);
 
-/**
- * @title ERC20Basic
- * @dev Simpler version of ERC20 interface
- * @dev see https://github.com/ethereum/EIPs/issues/179
- */
-contract ERC20Basic {
-  function totalSupply() public view returns (uint256);
-  function balanceOf(address who) public view returns (uint256);
-  function transfer(address to, uint256 value) public returns (bool);
-  event Transfer(address indexed from, address indexed to, uint256 value);
+    /**
+     * @dev Returns the amount of tokens in existence.
+     */
+    function totalSupply() external view returns (uint256);
+
+    /**
+     * @dev Returns the amount of tokens owned by `account`.
+     */
+    function balanceOf(address account) external view returns (uint256);
+
+    /**
+     * @dev Moves `amount` tokens from the caller's account to `to`.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * Emits a {Transfer} event.
+     */
+    function transfer(address to, uint256 amount) external returns (bool);
+
+    /**
+     * @dev Returns the remaining number of tokens that `spender` will be
+     * allowed to spend on behalf of `owner` through {transferFrom}. This is
+     * zero by default.
+     *
+     * This value changes when {approve} or {transferFrom} are called.
+     */
+    function allowance(address owner, address spender) external view returns (uint256);
+
+    /**
+     * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * IMPORTANT: Beware that changing an allowance with this method brings the risk
+     * that someone may use both the old and the new allowance by unfortunate
+     * transaction ordering. One possible solution to mitigate this race
+     * condition is to first reduce the spender's allowance to 0 and set the
+     * desired value afterwards:
+     * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+     *
+     * Emits an {Approval} event.
+     */
+    function approve(address spender, uint256 amount) external returns (bool);
+
+    /**
+     * @dev Moves `amount` tokens from `from` to `to` using the
+     * allowance mechanism. `amount` is then deducted from the caller's
+     * allowance.
+     *
+     * Returns a boolean value indicating whether the operation succeeded.
+     *
+     * Emits a {Transfer} event.
+     */
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) external returns (bool);
 }
 
-/**
- * @title SafeMath
- * @dev Math operations with safety checks that throw on error
- */
-library SafeMath {
 
-  /**
-  * @dev Multiplies two numbers, throws on overflow.
-  */
-  function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-    if (a == 0) {
-      return 0;
+
+/**
+ * @dev Interface for the optional metadata functions from the ERC20 standard.
+ *
+ * _Available since v4.1._
+ */
+interface IERC20Metadata is IERC20 {
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() external view returns (string memory);
+
+    /**
+     * @dev Returns the symbol of the token.
+     */
+    function symbol() external view returns (string memory);
+
+    /**
+     * @dev Returns the decimals places of the token.
+     */
+    function decimals() external view returns (uint8);
+}
+
+
+/**
+ * @dev Provides information about the current execution context, including the
+ * sender of the transaction and its data. While these are generally available
+ * via msg.sender and msg.data, they should not be accessed in such a direct
+ * manner, since when dealing with meta-transactions the account sending and
+ * paying for execution may not be the actual sender (as far as an application
+ * is concerned).
+ *
+ * This contract is only required for intermediate, library-like contracts.
+ */
+abstract contract Context {
+    function _msgSender() internal view virtual returns (address) {
+        return msg.sender;
     }
-    uint256 c = a * b;
-    assert(c / a == b);
-    return c;
-  }
 
-  /**
-  * @dev Integer division of two numbers, truncating the quotient.
-  */
-  function div(uint256 a, uint256 b) internal pure returns (uint256) {
-    // assert(b > 0); // Solidity automatically throws when dividing by 0
-    uint256 c = a / b;
-    // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-    return c;
-  }
-
-  /**
-  * @dev Substracts two numbers, throws on overflow (i.e. if subtrahend is greater than minuend).
-  */
-  function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-    assert(b <= a);
-    return a - b;
-  }
-
-  /**
-  * @dev Adds two numbers, throws on overflow.
-  */
-  function add(uint256 a, uint256 b) internal pure returns (uint256) {
-    uint256 c = a + b;
-    assert(c >= a);
-    return c;
-  }
-}
-
-
-/**
- * @title Basic token
- * @dev Basic version of StandardToken, with no allowances.
- */
-contract BasicToken is ERC20Basic {
-  using SafeMath for uint256;
-
-  mapping(address => uint256) balances;
-
-  uint256 totalSupply_;
-
-  /**
-  * @dev total number of tokens in existence
-  */
-  function totalSupply() public view returns (uint256) {
-    return totalSupply_;
-  }
-
-  /**
-  * @dev transfer token for a specified address
-  * @param _to The address to transfer to.
-  * @param _value The amount to be transferred.
-  */
-  function transfer(address _to, uint256 _value) public returns (bool) {
-    require(_to != address(0));
-    require(_value <= balances[msg.sender]);
-
-    // SafeMath.sub will throw if there is not enough balance.
-    balances[msg.sender] = balances[msg.sender].sub(_value);
-    balances[_to] = balances[_to].add(_value);
-    emit Transfer(msg.sender, _to, _value);
-    return true;
-  }
-
-  /**
-  * @dev Gets the balance of the specified address.
-  * @param _owner The address to query the the balance of.
-  * @return An uint256 representing the amount owned by the passed address.
-  */
-  function balanceOf(address _owner) public view returns (uint256 balance) {
-    return balances[_owner];
-  }
-
-}
-
-
-
-
-
-/**
- * @title ERC20 interface
- * @dev see https://github.com/ethereum/EIPs/issues/20
- */
-contract ERC20 is ERC20Basic {
-  function allowance(address owner, address spender) public view returns (uint256);
-  function transferFrom(address from, address to, uint256 value) public returns (bool);
-  function approve(address spender, uint256 value) public returns (bool);
-  event Approval(address indexed owner, address indexed spender, uint256 value);
-}
-
-
-
-/**
- * @title Standard ERC20 token
- *
- * @dev Implementation of the basic standard token.
- * @dev https://github.com/ethereum/EIPs/issues/20
- * @dev Based on code by FirstBlood: https://github.com/Firstbloodio/token/blob/master/smart_contract/FirstBloodToken.sol
- */
-contract StandardToken is ERC20, BasicToken {
-
-  mapping (address => mapping (address => uint256)) internal allowed;
-
-
-  /**
-   * @dev Transfer tokens from one address to another
-   * @param _from address The address which you want to send tokens from
-   * @param _to address The address which you want to transfer to
-   * @param _value uint256 the amount of tokens to be transferred
-   */
-  function transferFrom(address _from, address _to, uint256 _value) public returns (bool) {
-    require(_to != address(0));
-    require(_value <= balances[_from]);
-    require(_value <= allowed[_from][msg.sender]);
-
-    balances[_from] = balances[_from].sub(_value);
-    balances[_to] = balances[_to].add(_value);
-    allowed[_from][msg.sender] = allowed[_from][msg.sender].sub(_value);
-    emit Transfer(_from, _to, _value);
-    return true;
-  }
-
-  /**
-   * @dev Approve the passed address to spend the specified amount of tokens on behalf of msg.sender.
-   *
-   * Beware that changing an allowance with this method brings the risk that someone may use both the old
-   * and the new allowance by unfortunate transaction ordering. One possible solution to mitigate this
-   * race condition is to first reduce the spender's allowance to 0 and set the desired value afterwards:
-   * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
-   * @param _spender The address which will spend the funds.
-   * @param _value The amount of tokens to be spent.
-   */
-  function approve(address _spender, uint256 _value) public returns (bool) {
-    allowed[msg.sender][_spender] = _value;
-    emit Approval(msg.sender, _spender, _value);
-    return true;
-  }
-
-  /**
-   * @dev Function to check the amount of tokens that an owner allowed to a spender.
-   * @param _owner address The address which owns the funds.
-   * @param _spender address The address which will spend the funds.
-   * @return A uint256 specifying the amount of tokens still available for the spender.
-   */
-  function allowance(address _owner, address _spender) public view returns (uint256) {
-    return allowed[_owner][_spender];
-  }
-
-  /**
-   * @dev Increase the amount of tokens that an owner allowed to a spender.
-   *
-   * approve should be called when allowed[_spender] == 0. To increment
-   * allowed value is better to use this function to avoid 2 calls (and wait until
-   * the first transaction is mined)
-   * From MonolithDAO Token.sol
-   * @param _spender The address which will spend the funds.
-   * @param _addedValue The amount of tokens to increase the allowance by.
-   */
-  function increaseApproval(address _spender, uint _addedValue) public returns (bool) {
-    allowed[msg.sender][_spender] = allowed[msg.sender][_spender].add(_addedValue);
-    emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
-    return true;
-  }
-
-  /**
-   * @dev Decrease the amount of tokens that an owner allowed to a spender.
-   *
-   * approve should be called when allowed[_spender] == 0. To decrement
-   * allowed value is better to use this function to avoid 2 calls (and wait until
-   * the first transaction is mined)
-   * From MonolithDAO Token.sol
-   * @param _spender The address which will spend the funds.
-   * @param _subtractedValue The amount of tokens to decrease the allowance by.
-   */
-  function decreaseApproval(address _spender, uint _subtractedValue) public returns (bool) {
-    uint oldValue = allowed[msg.sender][_spender];
-    if (_subtractedValue > oldValue) {
-      allowed[msg.sender][_spender] = 0;
-    } else {
-      allowed[msg.sender][_spender] = oldValue.sub(_subtractedValue);
+    function _msgData() internal view virtual returns (bytes calldata) {
+        return msg.data;
     }
-    emit Approval(msg.sender, _spender, allowed[msg.sender][_spender]);
-    return true;
-  }
-
 }
 
 
 
 /**
- * Standard EIP-20 token with an interface marker.
+ * @dev Implementation of the {IERC20} interface.
  *
- * @notice Interface marker is used by crowdsale contracts to validate that addresses point a good token contract.
+ * This implementation is agnostic to the way tokens are created. This means
+ * that a supply mechanism has to be added in a derived contract using {_mint}.
+ * For a generic mechanism see {ERC20PresetMinterPauser}.
  *
- */
-contract StandardTokenExt is StandardToken {
-
-  /* Interface declaration */
-  function isToken() public pure returns (bool weAre) {
-    return true;
-  }
-}
-
-
-contract BurnableToken is StandardTokenExt {
-
-  // @notice An address for the transfer event where the burned tokens are transferred in a faux Transfer event
-  address public constant BURN_ADDRESS = 0;
-
-  /** How many tokens we burned */
-  event Burned(address burner, uint burnedAmount);
-
-  /**
-   * Burn extra tokens from a balance.
-   *
-   */
-  function burn(uint burnAmount) public {
-    address burner = msg.sender;
-    balances[burner] = balances[burner].sub(burnAmount);
-    totalSupply_ = totalSupply_.sub(burnAmount);
-    emit Burned(burner, burnAmount);
-
-    // Inform the blockchain explores that track the
-    // balances only by a transfer event that the balance in this
-    // address has decreased
-    emit Transfer(burner, BURN_ADDRESS, burnAmount);
-  }
-}
-
-/**
- * Upgrade agent interface inspired by Lunyr.
+ * TIP: For a detailed writeup see our guide
+ * https://forum.zeppelin.solutions/t/how-to-implement-erc20-supply-mechanisms/226[How
+ * to implement supply mechanisms].
  *
- * Upgrade agent transfers tokens to a new contract.
- * Upgrade agent itself can be the token contract, or just a middle man contract doing the heavy lifting.
- */
-contract UpgradeAgent {
-
-  uint public originalSupply;
-
-  /** Interface marker */
-  function isUpgradeAgent() public pure returns (bool) {
-    return true;
-  }
-
-  function upgradeFrom(address _from, uint256 _value) public;
-
-}
-
-
-/**
- * A token upgrade mechanism where users can opt-in amount of tokens to the next smart contract revision.
+ * We have followed general OpenZeppelin Contracts guidelines: functions revert
+ * instead returning `false` on failure. This behavior is nonetheless
+ * conventional and does not conflict with the expectations of ERC20
+ * applications.
  *
- * First envisioned by Golem and Lunyr projects.
+ * Additionally, an {Approval} event is emitted on calls to {transferFrom}.
+ * This allows applications to reconstruct the allowance for all accounts just
+ * by listening to said events. Other implementations of the EIP may not emit
+ * these events, as it isn't required by the specification.
+ *
+ * Finally, the non-standard {decreaseAllowance} and {increaseAllowance}
+ * functions have been added to mitigate the well-known issues around setting
+ * allowances. See {IERC20-approve}.
  */
-contract UpgradeableToken is StandardTokenExt {
+contract ERC20 is Context, IERC20, IERC20Metadata {
+    mapping(address => uint256) private _balances;
 
-  /** Contract / person who can set the upgrade path. This can be the same as team multisig wallet, as what it is with its default value. */
-  address public upgradeMaster;
+    mapping(address => mapping(address => uint256)) private _allowances;
 
-  /** The next contract where the tokens will be migrated. */
-  UpgradeAgent public upgradeAgent;
+    uint256 private _totalSupply;
 
-  /** How many tokens we have upgraded by now. */
-  uint256 public totalUpgraded;
+    string private _name;
+    string private _symbol;
 
-  /**
-   * Upgrade states.
-   *
-   * - NotAllowed: The child contract has not reached a condition where the upgrade can bgun
-   * - WaitingForAgent: Token allows upgrade, but we don't have a new agent yet
-   * - ReadyToUpgrade: The agent is set, but not a single token has been upgraded yet
-   * - Upgrading: Upgrade agent is set and the balance holders can upgrade their tokens
-   *
-   */
-  enum UpgradeState {Unknown, NotAllowed, WaitingForAgent, ReadyToUpgrade, Upgrading}
-
-  /**
-   * Somebody has upgraded some of his tokens.
-   */
-  event Upgrade(address indexed _from, address indexed _to, uint256 _value);
-
-  /**
-   * New upgrade agent available.
-   */
-  event UpgradeAgentSet(address agent);
-
-  /**
-   * Do not allow construction without upgrade master set.
-   */
-  constructor(address _upgradeMaster) public {
-    upgradeMaster = _upgradeMaster;
-  }
-
-  /**
-   * Allow the token holder to upgrade some of their tokens to a new contract.
-   */
-  function upgrade(uint256 value) public {
-
-      UpgradeState state = getUpgradeState();
-      if(!(state == UpgradeState.ReadyToUpgrade || state == UpgradeState.Upgrading)) {
-        // Called in a bad state
-        revert();
-      }
-
-      // Validate input value.
-      if (value == 0) revert();
-
-      balances[msg.sender] = balances[msg.sender].sub(value);
-
-      // Take tokens out from circulation
-      totalSupply_ = totalSupply_.sub(value);
-      totalUpgraded = totalUpgraded.add(value);
-
-      // Upgrade agent reissues the tokens
-      upgradeAgent.upgradeFrom(msg.sender, value);
-      emit Upgrade(msg.sender, upgradeAgent, value);
-  }
-
-  /**
-   * Set an upgrade agent that handles
-   */
-  function setUpgradeAgent(address agent) external {
-
-      if(!canUpgrade()) {
-        // The token is not yet in a state that we could think upgrading
-        revert();
-      }
-
-      if (agent == 0x0) revert();
-      // Only a master can designate the next agent
-      if (msg.sender != upgradeMaster) revert();
-      // Upgrade has already begun for an agent
-      if (getUpgradeState() == UpgradeState.Upgrading) revert();
-
-      upgradeAgent = UpgradeAgent(agent);
-
-      // Bad interface
-      if(!upgradeAgent.isUpgradeAgent()) revert();
-      // Make sure that token supplies match in source and target
-      if (upgradeAgent.originalSupply() != totalSupply_) revert();
-
-      emit UpgradeAgentSet(upgradeAgent);
-  }
-
-  /**
-   * Get the state of the token upgrade.
-   */
-  function getUpgradeState() public view returns(UpgradeState) {
-    if(!canUpgrade()) return UpgradeState.NotAllowed;
-    else if(address(upgradeAgent) == 0x00) return UpgradeState.WaitingForAgent;
-    else if(totalUpgraded == 0) return UpgradeState.ReadyToUpgrade;
-    else return UpgradeState.Upgrading;
-  }
-
-  /**
-   * Change the upgrade master.
-   *
-   * This allows us to set a new owner for the upgrade mechanism.
-   */
-  function setUpgradeMaster(address master) public {
-      if (master == 0x0) revert();
-      if (msg.sender != upgradeMaster) revert();
-      upgradeMaster = master;
-  }
-
-  /**
-   * Child contract can enable to provide the condition when the upgrade can begun.
-   */
-  function canUpgrade() public view returns(bool);
-
-}
-
-/**
- * @title Ownable
- * @dev The Ownable contract has an owner address, and provides basic authorization control
- * functions, this simplifies the implementation of "user permissions".
- */
-contract Ownable {
-  address public owner;
-
-
-  /**
-   * @dev The Ownable constructor sets the original `owner` of the contract to the sender
-   * account.
-   */
-  constructor() public {
-    owner = msg.sender;
-  }
-
-
-  /**
-   * @dev Throws if called by any account other than the owner.
-   */
-  modifier onlyOwner() {
-    require(msg.sender == owner);
-    _;
-  }
-
-
-  /**
-   * @dev Allows the current owner to transfer control of the contract to a newOwner.
-   * @param newOwner The address to transfer ownership to.
-   */
-  function transferOwnership(address newOwner) public onlyOwner {
-    require(newOwner != address(0));
-    owner = newOwner;
-  }
-
-}
-
-
-
-
-/**
- * Define interface for releasing the token transfer after a successful crowdsale.
- */
-contract ReleasableToken is ERC20, Ownable {
-
-  /* The finalizer contract that allows unlift the transfer limits on this token */
-  address public releaseAgent;
-
-  /** A crowdsale contract can release us to the wild if ICO success. If false we are are in transfer lock up period.*/
-  bool public released = false;
-
-  /** Map of agents that are allowed to transfer tokens regardless of the lock down period. These are crowdsale contracts and possible the team multisig itself. */
-  mapping (address => bool) public transferAgents;
-
-  /** Map of addresses that are locked to transfer tokens  */
-  mapping (address => bool) public lockAddresses;
-
-  /**
-   * Limit token transfer until the crowdsale is over.
-   *
-   */
-  modifier canTransfer(address _sender) {
-    if(lockAddresses[_sender]) {
-      revert();
+    /**
+     * @dev Sets the values for {name} and {symbol}.
+     *
+     * The default value of {decimals} is 18. To select a different value for
+     * {decimals} you should overload it.
+     *
+     * All two of these values are immutable: they can only be set once during
+     * construction.
+     */
+    constructor(string memory name_, string memory symbol_) {
+        _name = name_;
+        _symbol = symbol_;
     }
-    if(!released) {
-        if(!transferAgents[_sender]) {
-            revert();
+
+    /**
+     * @dev Returns the name of the token.
+     */
+    function name() public view virtual override returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @dev Returns the symbol of the token, usually a shorter version of the
+     * name.
+     */
+    function symbol() public view virtual override returns (string memory) {
+        return _symbol;
+    }
+
+    /**
+     * @dev Returns the number of decimals used to get its user representation.
+     * For example, if `decimals` equals `2`, a balance of `505` tokens should
+     * be displayed to a user as `5.05` (`505 / 10 ** 2`).
+     *
+     * Tokens usually opt for a value of 18, imitating the relationship between
+     * Ether and Wei. This is the value {ERC20} uses, unless this function is
+     * overridden;
+     *
+     * NOTE: This information is only used for _display_ purposes: it in
+     * no way affects any of the arithmetic of the contract, including
+     * {IERC20-balanceOf} and {IERC20-transfer}.
+     */
+    function decimals() public view virtual override returns (uint8) {
+        return 18;
+    }
+
+    /**
+     * @dev See {IERC20-totalSupply}.
+     */
+    function totalSupply() public view virtual override returns (uint256) {
+        return _totalSupply;
+    }
+
+    /**
+     * @dev See {IERC20-balanceOf}.
+     */
+    function balanceOf(address account) public view virtual override returns (uint256) {
+        return _balances[account];
+    }
+
+    /**
+     * @dev See {IERC20-transfer}.
+     *
+     * Requirements:
+     *
+     * - `to` cannot be the zero address.
+     * - the caller must have a balance of at least `amount`.
+     */
+    function transfer(address to, uint256 amount) public virtual override returns (bool) {
+        address owner = _msgSender();
+        _transfer(owner, to, amount);
+        return true;
+    }
+
+    /**
+     * @dev See {IERC20-allowance}.
+     */
+    function allowance(address owner, address spender) public view virtual override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    /**
+     * @dev See {IERC20-approve}.
+     *
+     * NOTE: If `amount` is the maximum `uint256`, the allowance is not updated on
+     * `transferFrom`. This is semantically equivalent to an infinite approval.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     */
+    function approve(address spender, uint256 amount) public virtual override returns (bool) {
+        address owner = _msgSender();
+        _approve(owner, spender, amount);
+        return true;
+    }
+
+    /**
+     * @dev See {IERC20-transferFrom}.
+     *
+     * Emits an {Approval} event indicating the updated allowance. This is not
+     * required by the EIP. See the note at the beginning of {ERC20}.
+     *
+     * NOTE: Does not update the allowance if the current allowance
+     * is the maximum `uint256`.
+     *
+     * Requirements:
+     *
+     * - `from` and `to` cannot be the zero address.
+     * - `from` must have a balance of at least `amount`.
+     * - the caller must have allowance for ``from``'s tokens of at least
+     * `amount`.
+     */
+    function transferFrom(
+        address from,
+        address to,
+        uint256 amount
+    ) public virtual override returns (bool) {
+        address spender = _msgSender();
+        _spendAllowance(from, spender, amount);
+        _transfer(from, to, amount);
+        return true;
+    }
+
+    /**
+     * @dev Atomically increases the allowance granted to `spender` by the caller.
+     *
+     * This is an alternative to {approve} that can be used as a mitigation for
+     * problems described in {IERC20-approve}.
+     *
+     * Emits an {Approval} event indicating the updated allowance.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     */
+    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
+        address owner = _msgSender();
+        _approve(owner, spender, allowance(owner, spender) + addedValue);
+        return true;
+    }
+
+    /**
+     * @dev Atomically decreases the allowance granted to `spender` by the caller.
+     *
+     * This is an alternative to {approve} that can be used as a mitigation for
+     * problems described in {IERC20-approve}.
+     *
+     * Emits an {Approval} event indicating the updated allowance.
+     *
+     * Requirements:
+     *
+     * - `spender` cannot be the zero address.
+     * - `spender` must have allowance for the caller of at least
+     * `subtractedValue`.
+     */
+    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
+        address owner = _msgSender();
+        uint256 currentAllowance = allowance(owner, spender);
+        require(currentAllowance >= subtractedValue, "ERC20: decreased allowance below zero");
+        unchecked {
+            _approve(owner, spender, currentAllowance - subtractedValue);
+        }
+
+        return true;
+    }
+
+    /**
+     * @dev Moves `amount` of tokens from `from` to `to`.
+     *
+     * This internal function is equivalent to {transfer}, and can be used to
+     * e.g. implement automatic token fees, slashing mechanisms, etc.
+     *
+     * Emits a {Transfer} event.
+     *
+     * Requirements:
+     *
+     * - `from` cannot be the zero address.
+     * - `to` cannot be the zero address.
+     * - `from` must have a balance of at least `amount`.
+     */
+    function _transfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {
+        require(from != address(0), "ERC20: transfer from the zero address");
+        require(to != address(0), "ERC20: transfer to the zero address");
+
+        _beforeTokenTransfer(from, to, amount);
+
+        uint256 fromBalance = _balances[from];
+        require(fromBalance >= amount, "ERC20: transfer amount exceeds balance");
+        unchecked {
+            _balances[from] = fromBalance - amount;
+        }
+        _balances[to] += amount;
+
+        emit Transfer(from, to, amount);
+
+        _afterTokenTransfer(from, to, amount);
+    }
+
+    /** @dev Creates `amount` tokens and assigns them to `account`, increasing
+     * the total supply.
+     *
+     * Emits a {Transfer} event with `from` set to the zero address.
+     *
+     * Requirements:
+     *
+     * - `account` cannot be the zero address.
+     */
+    function _mint(address account, uint256 amount) internal virtual {
+        require(account != address(0), "ERC20: mint to the zero address");
+
+        _beforeTokenTransfer(address(0), account, amount);
+
+        _totalSupply += amount;
+        _balances[account] += amount;
+        emit Transfer(address(0), account, amount);
+
+        _afterTokenTransfer(address(0), account, amount);
+    }
+
+    /**
+     * @dev Destroys `amount` tokens from `account`, reducing the
+     * total supply.
+     *
+     * Emits a {Transfer} event with `to` set to the zero address.
+     *
+     * Requirements:
+     *
+     * - `account` cannot be the zero address.
+     * - `account` must have at least `amount` tokens.
+     */
+    function _burn(address account, uint256 amount) internal virtual {
+        require(account != address(0), "ERC20: burn from the zero address");
+
+        _beforeTokenTransfer(account, address(0), amount);
+
+        uint256 accountBalance = _balances[account];
+        require(accountBalance >= amount, "ERC20: burn amount exceeds balance");
+        unchecked {
+            _balances[account] = accountBalance - amount;
+        }
+        _totalSupply -= amount;
+
+        emit Transfer(account, address(0), amount);
+
+        _afterTokenTransfer(account, address(0), amount);
+    }
+
+    /**
+     * @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
+     *
+     * This internal function is equivalent to `approve`, and can be used to
+     * e.g. set automatic allowances for certain subsystems, etc.
+     *
+     * Emits an {Approval} event.
+     *
+     * Requirements:
+     *
+     * - `owner` cannot be the zero address.
+     * - `spender` cannot be the zero address.
+     */
+    function _approve(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
+        require(owner != address(0), "ERC20: approve from the zero address");
+        require(spender != address(0), "ERC20: approve to the zero address");
+
+        _allowances[owner][spender] = amount;
+        emit Approval(owner, spender, amount);
+    }
+
+    /**
+     * @dev Updates `owner` s allowance for `spender` based on spent `amount`.
+     *
+     * Does not update the allowance amount in case of infinite allowance.
+     * Revert if not enough allowance is available.
+     *
+     * Might emit an {Approval} event.
+     */
+    function _spendAllowance(
+        address owner,
+        address spender,
+        uint256 amount
+    ) internal virtual {
+        uint256 currentAllowance = allowance(owner, spender);
+        if (currentAllowance != type(uint256).max) {
+            require(currentAllowance >= amount, "ERC20: insufficient allowance");
+            unchecked {
+                _approve(owner, spender, currentAllowance - amount);
+            }
         }
     }
 
-    _;
-  }
+    /**
+     * @dev Hook that is called before any transfer of tokens. This includes
+     * minting and burning.
+     *
+     * Calling conditions:
+     *
+     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
+     * will be transferred to `to`.
+     * - when `from` is zero, `amount` tokens will be minted for `to`.
+     * - when `to` is zero, `amount` of ``from``'s tokens will be burned.
+     * - `from` and `to` are never both zero.
+     *
+     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
+     */
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {}
 
-  /**
-   * Set the contract that can call release and make the token transferable.
-   * Design choice. Allow reset the release agent to fix fat finger mistakes.
-   * UPDATE (Apr.2019): Now owner can permit some account as transfer agent any time.
-   */
-  function setReleaseAgent(address addr) onlyOwner /* inReleaseState(false) */ public {
+    /**
+     * @dev Hook that is called after any transfer of tokens. This includes
+     * minting and burning.
+     *
+     * Calling conditions:
+     *
+     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
+     * has been transferred to `to`.
+     * - when `from` is zero, `amount` tokens have been minted for `to`.
+     * - when `to` is zero, `amount` of ``from``'s tokens have been burned.
+     * - `from` and `to` are never both zero.
+     *
+     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
+     */
+    function _afterTokenTransfer(
+        address from,
+        address to,
+        uint256 amount
+    ) internal virtual {}
+}
 
-    // We don't do interface check here as we might want to a normal wallet address to act as a release agent
-    releaseAgent = addr;
-  }
-
-  /**
-   * Owner can allow a particular address (a crowdsale contract) to transfer tokens despite the lock up period.
-   * UPDATE (Apr.2019): Now owner can permit some account as transfer agent any time.
-   */
-  function setTransferAgent(address addr, bool state) onlyOwner /* inReleaseState(false) */ public {
-    transferAgents[addr] = state;
-  }
-
-  /**
-   * Owner can lock a particular address (a crowdsale contract)
-   * UPDATE (Apr.2019): Now owner can lock specific account in some cases.
-   */
-  function setLockAddress(address addr, bool state) onlyOwner /*inReleaseState(false)*/ public {
-    lockAddresses[addr] = state;
-  }
-
-  /**
-   * One way function to release the tokens to the wild.
-   *
-   * Can be called only from the release agent that is the final ICO contract. It is only called if the crowdsale has been success (first milestone reached).
-   */
-  function releaseTokenTransfer() public onlyReleaseAgent {
-    released = true;
-  }
-
-  /**
-   * UPDATE (Apr.2019): Now owner can lock whole transfer in some cases (i.e security accidents)
-   */
-  function lockTokenTransfer() public onlyOwner {
-    released = false;
-  }
-
-  /** The function can be called only before or after the tokens have been releasesd
-   * UPDATE (Apr.201): Obsolete code, not used any more.
-   */
-    // modifier inReleaseState(bool releaseState) {
-    //   if(releaseState != released) {
-    //       revert();
-    //   }
-    //   _;
-    // }
-
-  /** The function can be called only by a whitelisted release agent. */
-  modifier onlyReleaseAgent() {
-    if(msg.sender != releaseAgent) {
-        revert();
+contract Insureum is ERC20 {
+    constructor() ERC20("Insureum", "ISR") {
+        _mint(msg.sender, 270000000000000000000000000);
     }
-    _;
-  }
-
-  function transfer(address _to, uint _value) public canTransfer(msg.sender) returns (bool success) {
-    // Call StandardToken.transfer()
-   return super.transfer(_to, _value);
-  }
-
-  function transferFrom(address _from, address _to, uint _value) public canTransfer(_from) returns (bool success) {
-    // Call StandardToken.transferForm()
-    return super.transferFrom(_from, _to, _value);
-  }
-
-}
-
-/**
- * Safe unsigned safe math.
- *
- * https://blog.aragon.one/library-driven-development-in-solidity-2bebcaf88736#.750gwtwli
- *
- * Originally from https://raw.githubusercontent.com/AragonOne/zeppelin-solidity/master/contracts/SafeMathLib.sol
- *
- * Maintained here until merged to mainline zeppelin-solidity.
- *
- */
-library SafeMathLib {
-
-  function times(uint a, uint b) internal pure returns (uint) {
-    uint c = a * b;
-    assert(a == 0 || c / a == b);
-    return c;
-  }
-
-  function minus(uint a, uint b) internal pure returns (uint) {
-    assert(b <= a);
-    return a - b;
-  }
-
-  function plus(uint a, uint b)  internal pure returns (uint) {
-    uint c = a + b;
-    assert(c>=a);
-    return c;
-  }
-
-}
-
-
-
-/**
- * A token that can increase its supply by another contract.
- *
- * This allows uncapped crowdsale by dynamically increasing the supply when money pours in.
- * Only mint agents, contracts whitelisted by owner, can mint new tokens.
- *
- */
-contract MintableToken is StandardTokenExt, Ownable {
-
-  using SafeMathLib for uint;
-
-  bool public mintingFinished = false;
-
-  /** List of agents that are allowed to create new tokens */
-  mapping (address => bool) public mintAgents;
-
-  event MintingAgentChanged(address addr, bool state);
-  event Minted(address receiver, uint amount);
-
-  /**
-   * Create new tokens and allocate them to an address..
-   *
-   * Only callably by a crowdsale contract (mint agent).
-   */
-  function mint(address receiver, uint amount) onlyMintAgent canMint public {
-    totalSupply_ = totalSupply_.plus(amount);
-    balances[receiver] = balances[receiver].plus(amount);
-
-    // This will make the mint transaction apper in EtherScan.io
-    // We can remove this after there is a standardized minting event
-    emit Transfer(0, receiver, amount);
-  }
-
-  /**
-   * Owner can allow a crowdsale contract to mint new tokens.
-   */
-  function setMintAgent(address addr, bool state) onlyOwner canMint public {
-    mintAgents[addr] = state;
-    emit MintingAgentChanged(addr, state);
-  }
-
-  modifier onlyMintAgent() {
-    // Only crowdsale contracts are allowed to mint new tokens
-    if(!mintAgents[msg.sender]) {
-        revert();
-    }
-    _;
-  }
-
-  /** Make sure we are not done yet. */
-  modifier canMint() {
-    if(mintingFinished) revert();
-    _;
-  }
-}
-
-
-/**
- * A crowdsaled token.
- *
- * An ERC-20 token designed specifically for crowdsales with investor protection and further development path.
- *
- * - The token transfer() is disabled until the crowdsale is over
- * - The token contract gives an opt-in upgrade path to a new contract
- * - The same token can be part of several crowdsales through approve() mechanism
- * - The token can be capped (supply set in the constructor) or uncapped (crowdsale contract can mint new tokens)
- *
- */
-contract CrowdsaleToken is ReleasableToken, MintableToken, UpgradeableToken {
-
-  /** Name and symbol were updated. */
-  event UpdatedTokenInformation(string newName, string newSymbol);
-
-  string public name;
-
-  string public symbol;
-
-  uint public decimals;
-
-  /**
-   * Construct the token.
-   *
-   * This token must be created through a team multisig wallet, so that it is owned by that wallet.
-   *
-   * @param _name Token name
-   * @param _symbol Token symbol - should be all caps
-   * @param _initialSupply How many tokens we start with
-   * @param _decimals Number of decimal places
-   * @param _mintable Are new tokens created over the crowdsale or do we distribute only the initial supply? Note that when the token becomes transferable the minting always ends.
-   */
-  constructor(string _name, string _symbol, uint _initialSupply, uint _decimals, bool _mintable) public
-    UpgradeableToken(msg.sender) {
-
-    // Create any address, can be transferred
-    // to team multisig via changeOwner(),
-    // also remember to call setUpgradeMaster()
-    owner = msg.sender;
-
-    name = _name;
-    symbol = _symbol;
-
-    totalSupply_ = _initialSupply;
-
-    decimals = _decimals;
-
-    // Create initially all balance on the team multisig
-    balances[owner] = totalSupply_;
-
-    if(totalSupply_ > 0) {
-      emit Minted(owner, totalSupply_);
-    }
-
-    // No more new supply allowed after the token creation
-    if(!_mintable) {
-      mintingFinished = true;
-      if(totalSupply_ == 0) {
-        revert(); // Cannot create a token without supply and no minting
-      }
-    }
-  }
-
-  /**
-   * When token is released to be transferable, enforce no new tokens can be created.
-   */
-  function releaseTokenTransfer() public onlyReleaseAgent {
-    mintingFinished = true;
-    super.releaseTokenTransfer();
-  }
-
-  /**
-   * Allow upgrade agent functionality kick in only if the crowdsale was success.
-   */
-  function canUpgrade() public view returns(bool) {
-    return released;
-  }
-
-  /**
-   * Owner can update token information here.
-   *
-   * It is often useful to conceal the actual token association, until
-   * the token operations, like central issuance or reissuance have been completed.
-   *
-   * This function allows the token owner to rename the token after the operations
-   * have been completed and then point the audience to use the token contract.
-   */
-  function setTokenInformation(string _name, string _symbol) public onlyOwner {
-    name = _name;
-    symbol = _symbol;
-
-    emit UpdatedTokenInformation(name, symbol);
-  }
-
-}
-
-
-/**
- * A crowdsaled token that you can also burn.
- *
- */
-contract BurnableCrowdsaleToken is BurnableToken, CrowdsaleToken {
-
-  constructor(string _name, string _symbol, uint _initialSupply, uint _decimals, bool _mintable) public
-    CrowdsaleToken(_name, _symbol, _initialSupply, _decimals, _mintable) {
-
-  }
-}
-
-
-
-/**
- * The AML Token
- *
- * This subset of BurnableCrowdsaleToken gives the Owner a possibility to
- * reclaim tokens from a participant before the token is released
- * after a participant has failed a prolonged AML process.
- *
- * It is assumed that the anti-money laundering process depends on blockchain data.
- * The data is not available before the transaction and not for the smart contract.
- * Thus, we need to implement logic to handle AML failure cases post payment.
- * We give a time window before the token release for the token sale owners to
- * complete the AML and claw back all token transactions that were
- * caused by rejected purchases.
- */
-contract AMLToken is BurnableCrowdsaleToken {
-
-  // An event when the owner has reclaimed non-released tokens
-  event OwnerReclaim(address fromWhom, uint amount);
-
-  constructor(string _name, string _symbol, uint _initialSupply, uint _decimals, bool _mintable) public BurnableCrowdsaleToken(_name, _symbol, _initialSupply, _decimals, _mintable) {
-
-  }
-
-  /// @dev Here the owner can reclaim the tokens from a participant if
-  ///      the token is not released yet. Refund will be handled offband.
-  /// @param fromWhom address of the participant whose tokens we want to claim
-  function transferToOwner(address fromWhom) public onlyOwner {
-    // UPDATE (Apr.2019): Onwer can reclaim any time in some cases (i.e. security accidents)
-    // if (released) revert();
-
-    uint amount = balanceOf(fromWhom);
-    balances[fromWhom] = balances[fromWhom].sub(amount);
-    balances[owner] = balances[owner].add(amount);
-    emit Transfer(fromWhom, owner, amount);
-    emit OwnerReclaim(fromWhom, amount);
-  }
 }
